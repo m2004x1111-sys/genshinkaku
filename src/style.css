@@ -1,0 +1,88 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #app { height: 100%; }
+
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  color: var(--blank-white, #ede5d8);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(94, 129, 164, 0.35), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(99, 72, 130, 0.30), transparent 55%),
+    linear-gradient(180deg, #0b1626 0%, #0e1c2e 45%, #122238 100%);
+  background-attachment: fixed;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Genshin-style subtle texture + gold rules */
+.g-border {
+  border: 1px solid rgba(180, 148, 96, 0.45);
+  border-radius: 6px;
+}
+
+.app-title {
+  font-family: 'Noto Serif SC', 'STSong', serif;
+  letter-spacing: 2px;
+  color: #f6e3b4;
+  text-shadow: 0 0 8px rgba(254, 213, 127, 0.35);
+}
+
+.gold-text { color: var(--font-gold, #fed57f); }
+.green-text { color: var(--font-green, #6bb463); }
+.gray-text { color: var(--font-light-gray, #747780); }
+
+/* native range slider restyled to genshin accent */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(72, 85, 103, 0.8);
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fed57f, #d8a63f);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fed57f, #d8a63f);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+/* native text input styled dark */
+.text-input {
+  background: rgba(20, 32, 48, 0.85);
+  border: 1px solid rgba(180, 148, 96, 0.4);
+  border-radius: 4px;
+  color: var(--blank-white, #ede5d8);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+}
+.text-input:focus {
+  border-color: var(--selected-border, #82b245);
+  box-shadow: 0 0 6px rgba(130, 178, 69, 0.35);
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(72, 85, 103, 0.7);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(116, 119, 128, 0.9); }
