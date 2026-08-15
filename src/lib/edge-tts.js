@@ -1,6 +1,6 @@
 ﻿import { Util } from './util.js'
 import { EDGE_TTS_TOKEN, CONFIG } from './config.js'
-import { detectRelay } from './relay.js'
+import { detectRelay, relayUrl } from './relay.js'
 
 /* browser-side Microsoft Edge TTS client over WebSocket */
 export const EdgeTTS = (() => {
@@ -122,7 +122,7 @@ export const EdgeTTS = (() => {
   //    MP3 works in every browser (including mobile). The server streams
   //    the whole MP3; we yield raw response chunks for MSE / blob. ─────────
   async function* relayStream(text, opts = {}) {
-    const res = await fetch('api/tts', {
+    const res = await fetch(relayUrl('api/tts'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

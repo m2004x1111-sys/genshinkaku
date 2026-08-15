@@ -11,7 +11,7 @@ import { EdgeTTS } from './lib/edge-tts'
 import { Zip } from './lib/zip'
 import { Epub } from './lib/epub'
 import { Player } from './lib/player'
-import { isRelay, detectRelay } from './lib/relay.js'
+import { isRelay, detectRelay, getRelayBase, setRelayBase } from './lib/relay.js'
 
 // ── state ──────────────────────────────────────────────────────────────
 const workIdInput = ref('')
@@ -42,9 +42,17 @@ const settingsOpen = ref(false)
 const proxyIdx = ref('0')
 const proxyCustom = ref('')
 const proxyTestResult = ref('')
+const relayBase = ref('')
 
 const relayMode = ref(false)
 const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
+const modeLabel = computed(() => {
+  if (isEdge.value) {
+    if (relayMode.value) return getRelayBase() ? '远程中转 · 全浏览器可放 MP3' : '本地中转 · 全浏览器可放 MP3'
+    return 'Edge TTS · 可导出 MP3'
+  }
+  return '浏览器语音 · 无 MP3'
+})
 
 const indexMap = computed(() => {
   const m = {}
@@ -331,6 +339,7 @@ async function generateAll() {
 function openSettings() {
   proxyCustom.value = ProxyUtil.getCustom()
   proxyIdx.value = proxyCustom.value ? 'custom' : String(ProxyUtil.getIndex())
+  relayBase.value = getRelayBase()
   proxyTestResult.value = ''
   settingsOpen.value = true
 }
@@ -341,8 +350,10 @@ function saveSettings() {
     ProxyUtil.setIndex(parseInt(proxyIdx.value, 10))
     ProxyUtil.setCustom('')
   }
+  setRelayBase(relayBase.value)
   settingsOpen.value = false
-  Message.success('代理设置已保存')
+  Message.success('设置已保存')
+  detectRelay().then(() => { relayMode.value = isRelay() })
 }
 async function testProxy() {
   const sel = proxyIdx.value === 'custom'
@@ -398,7 +409,7 @@ onBeforeUnmount(() => {
       <GButton type="shrink" @click="loadWork" :disable="busy">读取</GButton>
       <GButton type="shrink" @click="downloadEpub" :disable="busy || !work">EPUB</GButton>
       <GButton type="shrink" @click="generateAll" :disable="busy || !work">全话 MP3</GButton>
-      <GButton type="shrink" shape="round" @click="openSettings" title="设置">⚙</GButton>
+      <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
 
       <div v-if="work" class="work-info">
         <div class="work-title">{{ work.meta.title }}</div>
@@ -411,7 +422,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
-        {{ isEdge ? (relayMode ? '本地中转 · 全浏览器可放 MP3' : 'Edge TTS · 可导出 MP3') : '浏览器语音 · 无 MP3' }}
+        {{ modeLabel }}
       </div>
     </header>
 
@@ -500,7 +511,13 @@ onBeforeUnmount(() => {
             :ok="{ text: '保存' }" @ok="saveSettings" :cancel="{ text: '取消' }" @cancel="settingsOpen = false">
       <div class="modal-body">
         <div class="setting">
-          <span>CORS 代理</span>
+          <span>中转后端地址（可留空）</span>
+          <input v-model="relayBase" class="text-input"
+                 placeholder="如 https://xxx.onrender.com —— 静态前端指向单独的 Node 后端，任意浏览器可放 MP3" />
+          <span class="gray-text modal-hint">留空 = 与本站同源（server.js 直接托管本站）时自动生效</span>
+        </div>
+        <div class="setting">
+          <span>CORS 代理（无中转时才用）</span>
           <GSelect v-model="proxyIdx" :options="proxyOptions" />
         </div>
         <div class="setting">
@@ -544,6 +561,7 @@ onBeforeUnmount(() => {
 }
 .app-title { font-size: 22px; font-weight: 600; }
 .wid-input { width: 240px; }
+.gear-btn { width: 50px; min-width: 50px; flex: 0 0 50px; padding: 0; }
 .work-info { margin-left: 8px; max-width: 420px; min-width: 0; }
 .work-title {
   font-size: 14px;

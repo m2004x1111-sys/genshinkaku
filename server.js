@@ -248,6 +248,15 @@ function serveStatic(res, pathname) {
 
 // ── server ─────────────────────────────────────────────────────────────────
 const server = http.createServer((req, res) => {
+  // CORS: allow a separately hosted frontend (e.g. EdgeOne static) to call us
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return
+  }
   let pathname, params
   try {
     const u = new URL(req.url, 'http://localhost')
