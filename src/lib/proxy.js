@@ -1,4 +1,5 @@
 ﻿import { CONFIG } from './config.js'
+import { detectRelay } from './relay.js'
 
 /* fetch through CORS proxies (kakuyomu sends no CORS headers) */
 export const ProxyUtil = (() => {
@@ -41,6 +42,26 @@ export const ProxyUtil = (() => {
 
   async function text(url, { timeout = CONFIG.REQUEST_TIMEOUT_MS, onRetry, expect } = {}) {
     let lastErr = null
+    // 1) local relay server (same-origin, no CORS, no free proxy)
+    if (await detectRelay()) {
+      try {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), timeout)
+        const res = await fetch('/api/proxy?url=' + encodeURIComponent(url), {
+          signal: ctrl.signal,
+          cache: 'no-store',
+        })
+        clearTimeout(timer)
+        if (res.ok) {
+          const txt = await res.text()
+          if (txt && (!expect || expect.test(txt))) return txt
+        }
+        lastErr = new Error('relay proxy 失败')
+      } catch (e) {
+        lastErr = e
+      }
+      // fall through to public proxies on relay failure
+    }
     const attempts = Math.max(1, CONFIG.PROXY_ATTEMPTS || 1)
     const delay = CONFIG.PROXY_RETRY_DELAY_MS || 0
     for (const cfg of candidates()) {

@@ -1,5 +1,6 @@
 ﻿import { Util } from './util.js'
 import { EDGE_TTS_TOKEN, CONFIG } from './config.js'
+import { detectRelay } from './relay.js'
 
 /* browser-side Microsoft Edge TTS client over WebSocket */
 export const EdgeTTS = (() => {
@@ -117,7 +118,40 @@ export const EdgeTTS = (() => {
     if (!audioReceived) throw new Error('未收到音频 — 参数或连接可能有问题')
   }
 
+  // ── relay mode: server.js synthesizes with the correct User-Agent, so
+  //    MP3 works in every browser (including mobile). The server streams
+  //    the whole MP3; we yield raw response chunks for MSE / blob. ─────────
+  async function* relayStream(text, opts = {}) {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        voice: opts.voice,
+        rate: opts.rate || '+0%',
+        pitch: opts.pitch || '+0Hz',
+      }),
+    })
+    if (!res.ok || !res.body) {
+      throw new Error(`本地中转换音失败（HTTP ${res.status}）`)
+    }
+    const reader = res.body.getReader()
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value && value.length) yield value
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
   async function* stream(text, opts = {}) {
+    if (await detectRelay()) {
+      yield* relayStream(text, opts)
+      return
+    }
     const clean = Util.removeIncompatibleChars(text)
     const escaped = Util.xmlEscape(clean)
     const segments = Util.splitTextByBytes(escaped, CONFIG.TTS_CHUNK_BYTES)

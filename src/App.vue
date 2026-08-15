@@ -11,6 +11,7 @@ import { EdgeTTS } from './lib/edge-tts'
 import { Zip } from './lib/zip'
 import { Epub } from './lib/epub'
 import { Player } from './lib/player'
+import { isRelay, detectRelay } from './lib/relay.js'
 
 // ── state ──────────────────────────────────────────────────────────────
 const workIdInput = ref('')
@@ -42,7 +43,8 @@ const proxyIdx = ref('0')
 const proxyCustom = ref('')
 const proxyTestResult = ref('')
 
-const isEdge = computed(() => Util.isEdgeTTSBrowser())
+const relayMode = ref(false)
+const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
 
 const indexMap = computed(() => {
   const m = {}
@@ -362,6 +364,7 @@ async function clearCache() {
 // ── audio events + keyboard ────────────────────────────────────────────
 let onKey = null
 onMounted(() => {
+  detectRelay().then(() => { relayMode.value = isRelay() })
   const audio = Player.audio
   audio.addEventListener('timeupdate', () => { curTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { duration.value = audio.duration })
@@ -408,7 +411,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
-        {{ isEdge ? 'Edge TTS · 可导出 MP3' : '浏览器语音 · 无 MP3' }}
+        {{ isEdge ? (relayMode ? '本地中转 · 全浏览器可放 MP3' : 'Edge TTS · 可导出 MP3') : '浏览器语音 · 无 MP3' }}
       </div>
     </header>
 
