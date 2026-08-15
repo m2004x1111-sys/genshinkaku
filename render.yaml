@@ -1,0 +1,13 @@
+# Render 部署配置（免费 Node 托管，直接连 GitHub 一键部署）
+# 文档: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: genshinkaku
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

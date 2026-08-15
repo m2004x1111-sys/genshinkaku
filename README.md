@@ -40,6 +40,31 @@ npm run dev        # 开发，浏览器访问 http://localhost:5173
 npm run preview    # 预览构建产物
 ```
 
+## 免服务器部署（直接得到一个网址）
+
+没有服务器也能上线，用免费 Node 托管平台从 GitHub 一键部署（自带 HTTPS 网址，手机/任何浏览器都能放 MP3）：
+
+**方案一：Render.com（推荐，免费）**
+
+1. 注册 https://render.com （GitHub 账号登录）
+2. Dashboard → **New → Blueprint** → 选择仓库 `m2004x1111-sys/genshinkaku`
+3. 它读取仓库里的 `render.yaml` 自动创建服务，点 **Apply** 部署
+4. 几分钟后得到网址：`https://genshinkaku.onrender.com`
+5. 自检：`https://genshinkaku.onrender.com/api/ping` 返回 `ok`；打开首页徽标显示「本地中转 · 全浏览器可放 MP3」
+
+> 免费版说明：15 分钟无人访问会休眠，再次打开需等待 30~60 秒冷启动（个人使用可接受）。
+
+**方案二：Railway.app（备选）**
+
+1. 注册 https://railway.app → **New Project → Deploy from GitHub** → 选 `genshinkaku`
+2. 仓库已有 `railway.json`（构建 `npm install && npm run build`，启动 `node server.js`）
+3. 部署完成后设置 → Networking → 生成域名
+
+注意：
+- 这些平台部署在海外机房，**服务器端能访问 kakuyomu.jp 和微软语音服务**（中转由平台机房直连，不受你本地网络限制）
+- 你在国内访问 `onrender.com`/`up.railway.app` 域名可能偏慢或被墙，若打不开请换平台或改用服务器部署
+- 若需要稳定国内访问，建议之后用腾讯云香港/海外区服务器跑 `server.js`
+
 ## 部署到服务器（重要）
 
 **要保证手机/其他浏览器能放 MP3，服务器上必须运行 `server.js`（Node），不能只挂静态文件。**
