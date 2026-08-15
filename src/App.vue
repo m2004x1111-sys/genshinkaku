@@ -66,8 +66,9 @@ const pbRateOptions = [
   { text: '2.0x', value: '2' },
 ]
 const proxyOptions = [
-  { text: 'allorigins.win', value: '0' },
-  { text: 'corsproxy.io', value: '1' },
+  { text: 'r.jina.ai（推荐）', value: '0' },
+  { text: 'allorigins.win', value: '1' },
+  { text: 'corsproxy.io', value: '2' },
   { text: '自定义代理', value: 'custom' },
 ]
 
@@ -342,11 +343,13 @@ function saveSettings() {
   Message.success('代理设置已保存')
 }
 async function testProxy() {
-  const tpl = proxyIdx.value === 'custom'
-    ? proxyCustom.value.trim()
-    : CONFIG.PROXY_SERVERS[parseInt(proxyIdx.value, 10)].template
+  const sel = proxyIdx.value === 'custom'
+    ? null
+    : CONFIG.PROXY_SERVERS[parseInt(proxyIdx.value, 10)]
+  const tpl = sel ? sel.template : proxyCustom.value.trim()
   if (!tpl) { Message.error('请先填写自定义代理'); return }
-  const r = await ProxyUtil.testProxy(tpl)
+  const headers = (sel && sel.headers) || {}
+  const r = await ProxyUtil.testProxy(tpl, headers)
   proxyTestResult.value = r.ok
     ? `✔ 可用 (HTTP ${r.status}, ${r.len} 字节)`
     : `✘ 不可用: ${r.error || 'HTTP ' + r.status}`

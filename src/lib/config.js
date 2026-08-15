@@ -2,6 +2,7 @@ export const EDGE_TTS_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
 
 export const CONFIG = {
   PROXY_SERVERS: [
+    { name: 'r.jina.ai', template: 'https://r.jina.ai/{url}', headers: { 'X-Return-Format': 'html' } },
     { name: 'allorigins.win', template: 'https://api.allorigins.win/raw?url={url}' },
     { name: 'corsproxy.io', template: 'https://corsproxy.io/?url={url}' },
   ],

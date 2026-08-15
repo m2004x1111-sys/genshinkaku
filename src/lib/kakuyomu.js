@@ -136,7 +136,7 @@ export const Kakuyomu = (() => {
 
   // ── high level ────────────────────────────────────────────────────────────
   async function fetchWork(workId, { onRetry } = {}) {
-    const html = await ProxyUtil.text(WORK_URL(workId), { onRetry })
+    const html = await ProxyUtil.text(WORK_URL(workId), { onRetry, expect: /__NEXT_DATA__/ })
     const data = parseNextData(html)
     const state = data.props && data.props.pageProps && data.props.pageProps.__APOLLO_STATE__
     if (!state) throw new Error('__APOLLO_STATE__ 未找到 — 页面结构可能已变更')
@@ -144,7 +144,10 @@ export const Kakuyomu = (() => {
   }
 
   async function fetchEpisode(workId, episodeId, { onRetry } = {}) {
-    const html = await ProxyUtil.text(EPISODE_URL(workId, episodeId), { onRetry })
+    const html = await ProxyUtil.text(EPISODE_URL(workId, episodeId), {
+      onRetry,
+      expect: /contentMain-inner/,
+    })
     return extractParagraphs(html)
   }
 
