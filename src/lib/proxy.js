@@ -47,7 +47,7 @@ export const ProxyUtil = (() => {
       try {
         const ctrl = new AbortController()
         const timer = setTimeout(() => ctrl.abort(), timeout)
-        const res = await fetch('/api/proxy?url=' + encodeURIComponent(url), {
+        const res = await fetch('api/proxy?url=' + encodeURIComponent(url), {
           signal: ctrl.signal,
           cache: 'no-store',
         })

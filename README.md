@@ -40,6 +40,29 @@ npm run dev        # 开发，浏览器访问 http://localhost:5173
 npm run preview    # 预览构建产物
 ```
 
+## 部署到服务器（重要）
+
+**要保证手机/其他浏览器能放 MP3，服务器上必须运行 `server.js`（Node），不能只挂静态文件。**
+
+> 只上传 `dist/` 到 nginx/GitHub Pages/Netlify 等静态托管时，应用探测不到 `/api/ping`，会回退到纯前端模式——此时只有 Edge 能合成 MP3，其他浏览器显示"无 MP3"。中转模式必须由 Node 进程提供抓取与合成接口。
+
+```bash
+# 在服务器上（需已安装 Node.js 18+）
+git clone https://github.com/m2004x1111-sys/genshinkaku.git
+cd genshinkaku
+npm install
+npm run build
+npm run serve          # 监听 0.0.0.0:5174
+
+# 防火墙放行 5174 端口；域名可用 nginx 反代到 127.0.0.1:5174
+```
+
+**部署后自检**：浏览器打开 `http://<服务器地址>:5174/api/ping` —— 返回 `ok` 即中转模式生效，应用徽标会显示「本地中转 · 全浏览器可放 MP3」。若打不开或 404，说明 server.js 没在运行或端口没放行。
+
+注意事项：
+- 服务器需能访问 kakuyomu.jp 和微软语音服务（若服务器所在区域被墙，需在服务器上配好出口网络）
+- 反向代理时请把 `/api/*` 也转发到 server.js，并保持同一域名/端口，否则探测不到中转
+
 ## 技术要点
 
 - **GenshinUI**：全局注册，组件带 `G` 前缀（`<GButton>` `<GSelect>` `<GSwitch>` `<GModal>`）；`Message` 用于消息提示

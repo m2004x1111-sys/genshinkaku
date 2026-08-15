@@ -14,7 +14,7 @@ export function detectRelay() {
     try {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), 3000)
-      const r = await fetch('/api/ping', { signal: ctrl.signal, cache: 'no-store' })
+      const r = await fetch('api/ping', { signal: ctrl.signal, cache: 'no-store' })
       clearTimeout(timer)
       active = r.ok && (await r.text()) === 'ok'
     } catch (e) {

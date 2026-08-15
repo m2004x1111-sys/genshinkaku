@@ -122,7 +122,7 @@ export const EdgeTTS = (() => {
   //    MP3 works in every browser (including mobile). The server streams
   //    the whole MP3; we yield raw response chunks for MSE / blob. ─────────
   async function* relayStream(text, opts = {}) {
-    const res = await fetch('/api/tts', {
+    const res = await fetch('api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
