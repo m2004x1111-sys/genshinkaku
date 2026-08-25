@@ -82,7 +82,8 @@ function generateSecMsGec(nowMs = Date.now()) {
   ticks -= ticks % 300n
   ticks *= 10000000n
   const strToHash = `${ticks}${EDGE_TTS_TOKEN}`
-  return sha256Hex(strToHash)
+  // Microsoft rejects lowercase hashes with HTTP 403 — must be UPPERCASE
+  return sha256Hex(strToHash).toUpperCase()
 }
 
 // ── escaping / cleaning ─────────────────────────────────────────────────
