@@ -78,6 +78,23 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 0 6px rgba(130, 178, 69, 0.35);
 }
 
+/* GModal is teleported outside App.vue, so keep its mobile sizing global. */
+@media (max-width: 700px) {
+  .modal-theme-dark {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+  .modal-theme-dark.modal-body {
+    width: calc(100vw - 24px) !important;
+    min-width: 0 !important;
+  }
+  .modal-theme-dark .modal-body {
+    max-width: 100%;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+  }
+}
+
 /* scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

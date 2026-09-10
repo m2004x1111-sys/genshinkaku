@@ -18,6 +18,7 @@ const workIdInput = ref('')
 const work = ref(null)
 const entries = ref([])
 const episodeParas = ref(new Map())
+const currentText = ref('')
 const current = ref(null) // {episode, index}
 const voice = ref('nanami')
 const rate = ref('+0%')
@@ -46,6 +47,7 @@ const relayBase = ref('')
 
 const relayMode = ref(false)
 const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
+const AUDIO_SETTINGS_KEY = 'kakuyomu_audio_settings'
 const modeLabel = computed(() => {
   if (isEdge.value) {
     if (relayMode.value) return getRelayBase() ? '远程中转 · 全浏览器可放 MP3' : '本地中转 · 全浏览器可放 MP3'
@@ -133,8 +135,39 @@ function applyWork(data) {
   work.value = data
   entries.value = Kakuyomu.walk(data.root)
   current.value = null
+  currentText.value = ''
   episodeParas.value = new Map()
   status.value = ''
+}
+
+function loadAudioSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUDIO_SETTINGS_KEY) || 'null')
+    if (!saved) return
+    if (['nanami', 'keita'].includes(saved.voice)) voice.value = saved.voice
+    if (CONFIG.RATES.includes(saved.rate)) rate.value = saved.rate
+    if (CONFIG.PITCHES.includes(saved.pitch)) pitch.value = saved.pitch
+    if (['0.5', '0.75', '1', '1.25', '1.5', '2'].includes(String(saved.pbRate))) pbRate.value = String(saved.pbRate)
+    if (Number.isFinite(saved.volume)) volume.value = Math.min(1, Math.max(0, Number(saved.volume)))
+    if (typeof saved.autoNext === 'boolean') autoNext.value = saved.autoNext
+    if (typeof saved.saveToLocal === 'boolean') saveToLocal.value = saved.saveToLocal
+    Player.audio.volume = volume.value
+    Player.audio.playbackRate = parseFloat(pbRate.value)
+  } catch (e) { /* ignore malformed local settings */ }
+}
+
+function saveAudioSettings() {
+  try {
+    localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify({
+      voice: voice.value,
+      rate: rate.value,
+      pitch: pitch.value,
+      pbRate: pbRate.value,
+      volume: volume.value,
+      autoNext: autoNext.value,
+      saveToLocal: saveToLocal.value,
+    }))
+  } catch (e) { /* ignore storage failures */ }
 }
 
 async function loadWork() {
@@ -198,10 +231,14 @@ async function playEpisode() {
   if (!current.value || !work.value) return
   const ep = current.value.episode
   Player.stop()
+  currentText.value = ''
+  curTime.value = 0
+  duration.value = NaN
   status.value = '正在获取正文...'
   try {
     const text = await episodeText(ep)
     if (!text) { status.value = '正文为空 — 可能抓取失败'; return }
+    currentText.value = text
 
     if (isEdge.value) {
       status.value = '正在合成语音...'
@@ -222,7 +259,7 @@ async function playEpisode() {
         return
       } catch (e) {
         busy.value = false
-        status.value = 'edge-tts 失败，切换到浏览器语音'
+        status.value = `MP3 语音服务失败：${e.message}；正在尝试浏览器语音`
       }
     }
 
@@ -382,7 +419,10 @@ onMounted(() => {
   audio.addEventListener('play', () => { isPlaying.value = true })
   audio.addEventListener('pause', () => { isPlaying.value = false })
   audio.addEventListener('ended', () => { if (autoNext.value) stepEpisode(1) })
-  audio.addEventListener('error', () => { if (!busy.value) status.value = '播放错误 — 语音合成失败' })
+  audio.addEventListener('error', () => {
+    if (!busy.value && !/语音服务失败|浏览器语音/.test(status.value)) status.value = '播放错误 — 语音合成失败'
+  })
+  loadAudioSettings()
 
   onKey = (e) => {
     const tag = document.activeElement.tagName
@@ -395,6 +435,7 @@ onMounted(() => {
   }
   document.addEventListener('keydown', onKey)
 })
+watch([voice, rate, pitch, pbRate, volume, autoNext, saveToLocal], saveAudioSettings)
 onBeforeUnmount(() => {
   if (onKey) document.removeEventListener('keydown', onKey)
 })
@@ -486,6 +527,10 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="status-line">{{ status }}</div>
+            <details v-if="currentText" class="text-panel">
+              <summary>展开正文</summary>
+              <article class="episode-text">{{ currentText }}</article>
+            </details>
           </template>
           <div v-else class="empty-panel gray-text">← 点击左侧章节开始朗读</div>
         </div>
@@ -651,6 +696,28 @@ onBeforeUnmount(() => {
   min-height: 18px;
 }
 
+.text-panel {
+  margin-top: 14px;
+  border-top: 1px solid rgba(180, 148, 96, 0.22);
+  padding-top: 10px;
+}
+.text-panel summary {
+  cursor: pointer;
+  color: var(--font-light-gray, #a6a9b2);
+  font-size: 12px;
+  user-select: none;
+}
+.episode-text {
+  margin-top: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.85;
+  color: var(--blank-white, #ede5d8);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+  font-size: 14px;
+}
+
 /* batch */
 .batch-panel { max-width: 680px; width: 100%; margin: 0 auto; }
 .batch-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
@@ -703,4 +770,35 @@ onBeforeUnmount(() => {
 }
 .loading-text { font-size: 14px; color: var(--font-gold, #fed57f); }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 700px) {
+  .app-header {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .app-title { width: 100%; font-size: 19px; }
+  .wid-input { width: 100%; min-width: 0; flex: 1 1 100%; }
+  .app-header :deep(.button-wrap-button) { width: auto; min-width: 0; flex: 0 0 auto; }
+  .work-info { order: 4; width: 100%; margin-left: 0; max-width: none; max-height: 46px; overflow: hidden; }
+  .work-tags { max-height: 22px; overflow: hidden; }
+  .mode-badge { order: 5; margin-left: 0; }
+
+  .app-main { flex-direction: column; }
+  .app-side {
+    width: 100%;
+    min-width: 0;
+    max-height: 30vh;
+    border-right: 0;
+    border-bottom: 1px solid rgba(180, 148, 96, 0.25);
+  }
+  .app-content { padding: 12px; gap: 12px; }
+  .panel { padding: 16px; }
+  .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .setting { min-width: 0; }
+  .controls { gap: 8px; }
+  .ctl { width: 52px; min-width: 52px; flex-basis: 52px; }
+  .ctl.play { width: 60px; flex-basis: 60px; }
+  .batch-actions { flex-wrap: wrap; }
+  .batch-status { overflow-wrap: anywhere; }
+}
 </style>

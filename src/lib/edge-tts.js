@@ -132,19 +132,27 @@ export const EdgeTTS = (() => {
         pitch: opts.pitch || '+0Hz',
       }),
     })
-    if (!res.ok || !res.body) {
-      throw new Error(`本地中转换音失败（HTTP ${res.status}）`)
+    const contentType = res.headers.get('content-type') || ''
+    if (!res.ok || !res.body || !/audio\/mpeg/i.test(contentType)) {
+      let detail = ''
+      try {
+        const data = await res.json()
+        detail = data.error || data.detail || ''
+      } catch (e) { /* response may not be JSON */ }
+      throw new Error(detail || `语音中转失败（HTTP ${res.status}）`)
     }
     const reader = res.body.getReader()
+    let received = false
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        if (value && value.length) yield value
+        if (value && value.length) { received = true; yield value }
       }
     } finally {
       reader.releaseLock()
     }
+    if (!received) throw new Error('语音中转返回了空音频')
   }
 
   async function* stream(text, opts = {}) {

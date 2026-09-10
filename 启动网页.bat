@@ -1,18 +1,27 @@
 @echo off
-chcp 65001 >nul
-rem 启动 kakuyomub2-genshin（本地中转模式：抓取无需公共代理，任何浏览器均可放 MP3）
+setlocal
 cd /d "%~dp0"
 
-if not exist node_modules (
-  echo 首次运行，正在安装依赖，请稍候...
+if not exist "node_modules\vue" (
+  echo Installing dependencies...
   call npm install
+  if errorlevel 1 goto :failed
 )
 
-if not exist dist (
-  echo 正在构建前端...
+if not exist "dist\index.html" (
+  echo Building frontend...
   call npm run build
+  if errorlevel 1 goto :failed
 )
 
-echo 正在启动本地服务（Ctrl+C 停止）...
+echo Starting server at http://localhost:5174
+echo Keep this window open. Press Ctrl+C to stop.
 start "" "http://localhost:5174"
-call node server.js
+node server.js
+if errorlevel 1 goto :failed
+goto :eof
+
+:failed
+echo.
+echo Startup failed. Read the error above.
+pause

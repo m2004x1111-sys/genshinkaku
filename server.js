@@ -172,6 +172,10 @@ async function handleProxy(req, res, params) {
   const target = params.get('url')
   if (!target) return sendJSON(res, 400, { error: 'missing url' })
   try {
+    const targetUrl = new URL(target)
+    if (targetUrl.protocol !== 'https:' || !['kakuyomu.jp', 'www.kakuyomu.jp'].includes(targetUrl.hostname)) {
+      return sendJSON(res, 400, { error: 'only kakuyomu.jp URLs are allowed' })
+    }
     const r = await fetch(target, {
       redirect: 'follow',
       headers: {
@@ -206,16 +210,28 @@ function handleTTS(req, res) {
       rate: String(data.rate || '+0%'),
       pitch: String(data.pitch || '+0Hz'),
     }
-    res.writeHead(200, {
-      'Content-Type': 'audio/mpeg',
-      'Cache-Control': 'no-cache',
-      'Transfer-Encoding': 'chunked',
-    })
+    let started = false
+    let audioBytes = 0
+    const writeAudio = (chunk) => {
+      if (!started) {
+        res.writeHead(200, {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'no-cache',
+          'Transfer-Encoding': 'chunked',
+        })
+        started = true
+      }
+      audioBytes += chunk.length
+      try { res.write(chunk) } catch {}
+    }
     try {
-      await synthesizeAll(text, opts, (chunk) => { try { res.write(chunk) } catch {} })
+      await synthesizeAll(text, opts, writeAudio)
+      if (!started || audioBytes === 0) return sendJSON(res, 502, { error: 'edge-tts returned no audio' })
       try { res.end() } catch {}
     } catch (e) {
-      try { res.end() } catch {}
+      console.error('[tts]', e && e.stack || e)
+      if (!started) return sendJSON(res, 502, { error: 'edge-tts synthesis failed', detail: String(e && e.message || e) })
+      try { res.destroy() } catch {}
     }
   })
   req.on('error', () => { try { res.end() } catch {} })

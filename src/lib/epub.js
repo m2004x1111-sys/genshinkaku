@@ -38,10 +38,10 @@ h1 { font-size: 16px; }`
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="ja">
-<head><meta charset="UTF-8"/><title>鐩</title></head>
-<body>
-<nav epub:type="toc" id="toc">
-<h1>鐩</h1>
+  <head><meta charset="UTF-8"/><title>目录</title></head>
+  <body>
+  <nav epub:type="toc" id="toc">
+  <h1>目录</h1>
 ${navItems(root)}
 </nav>
 </body>
