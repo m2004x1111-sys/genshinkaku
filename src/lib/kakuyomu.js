@@ -84,7 +84,7 @@ export const Kakuyomu = (() => {
     }
 
     if (chapters.length) {
-      const stack = [root]
+      let stack = [root]
       for (const c of chapters) {
         const node = { title: c.title, level: c.level, children: [], episodes: [] }
         while (stack.length && stack[stack.length - 1].level >= c.level) stack.pop()

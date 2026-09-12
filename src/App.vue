@@ -46,11 +46,12 @@ const proxyTestResult = ref('')
 const relayBase = ref('')
 
 const relayMode = ref(false)
+const sidebarCollapsed = ref(false)
 const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
 const AUDIO_SETTINGS_KEY = 'kakuyomu_audio_settings'
 const modeLabel = computed(() => {
   if (isEdge.value) {
-    if (relayMode.value) return getRelayBase() ? '远程中转 · 全浏览器可放 MP3' : '本地中转 · 全浏览器可放 MP3'
+    if (relayMode.value) return getRelayBase() ? '远程中转 · 全浏览器可放 MP3' : '喵！'
     return 'Edge TTS · 可导出 MP3'
   }
   return '浏览器语音 · 无 MP3'
@@ -89,6 +90,10 @@ function fmtTime(t) {
   const m = Math.floor(t / 60)
   const s = Math.floor(t % 60)
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
 // ── episode content ────────────────────────────────────────────────────
@@ -443,41 +448,74 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <!-- header -->
-    <header class="app-header">
-      <div class="app-title">カクヨム TTS</div>
-      <input v-model="workIdInput" class="text-input wid-input" placeholder="作品 ID 或完整 URL" @keydown.enter="loadWork" />
-      <GButton type="shrink" @click="loadWork" :disable="busy">读取</GButton>
-      <GButton type="shrink" @click="downloadEpub" :disable="busy || !work">EPUB</GButton>
-      <GButton type="shrink" @click="generateAll" :disable="busy || !work">全话 MP3</GButton>
-      <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
-
-      <div v-if="work" class="work-info">
-        <div class="work-title">{{ work.meta.title }}</div>
-        <div class="work-meta gray-text">
-          {{ work.meta.author }} · <span class="gold-text">{{ entries.length }}</span> 话
-        </div>
-        <div v-if="work.meta.tags && work.meta.tags.length" class="work-tags">
-          <span v-for="t in work.meta.tags" :key="t" class="tag">{{ t }}</span>
-        </div>
-      </div>
-
-      <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
-        {{ modeLabel }}
-      </div>
-    </header>
-
-    <!-- main -->
+    <!-- main: left function area + right browser area -->
     <main class="app-main">
-      <aside class="app-side">
-        <div class="side-title gold-text">章節目次</div>
-        <div v-if="work" class="tree">
-          <ChapterNode :node="work.root" :depth="0" :index-map="indexMap" :active-id="activeId" @select="selectEpisode" />
+      <aside class="app-side" :class="{ collapsed: sidebarCollapsed }">
+        <div class="side-brand">
+          <div class="brand-row">
+            <div class="app-title">
+              <span v-if="!sidebarCollapsed">阅读机</span>
+              <span v-else title="阅读机">TTS</span>
+            </div>
+            <button class="sidebar-toggle" type="button" :aria-expanded="!sidebarCollapsed"
+                    :aria-label="sidebarCollapsed ? '展开左侧栏' : '收起左侧栏'"
+                    :title="sidebarCollapsed ? '展开左侧栏' : '收起左侧栏'"
+                    @click="toggleSidebar">
+              {{ sidebarCollapsed ? '›' : '‹' }}
+            </button>
+          </div>
+          <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
+            <span class="mode-logo" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img">
+                <path d="M4 4h8.7L21 12.3 12.3 21 4 12.7V4Zm3 2v5.9l5.3 5.3 5.9-5.9-5.3-5.3H7Z" />
+                <circle cx="8.4" cy="8.4" r="1.2" />
+              </svg>
+            </span>
+            <span>{{ modeLabel }}</span>
+          </div>
         </div>
-        <div v-else class="side-empty gray-text">输入作品 ID 后点击「读取」</div>
+
+        <div v-show="!sidebarCollapsed" class="sidebar-content">
+        <section class="function-panel">
+          <div class="side-section-title gold-text">功能区</div>
+          <input v-model="workIdInput" class="text-input wid-input" placeholder="作品 ID 或完整 URL" @keydown.enter="loadWork" />
+          <div class="function-actions">
+            <GButton type="shrink" @click="loadWork" :disable="busy">读取</GButton>
+            <GButton type="shrink" @click="downloadEpub" :disable="busy || !work">EPUB</GButton>
+            <GButton type="shrink" @click="generateAll" :disable="busy || !work">全话 MP3</GButton>
+            <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
+          </div>
+
+          <div v-if="work" class="work-info">
+            <div class="work-title">{{ work.meta.title }}</div>
+            <div class="work-meta gray-text">
+              {{ work.meta.author }} · <span class="gold-text">{{ entries.length }}</span> 话
+            </div>
+            <div v-if="work.meta.tags && work.meta.tags.length" class="work-tags">
+              <span v-for="t in work.meta.tags" :key="t" class="tag">{{ t }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chapter-panel">
+          <div class="side-title gold-text">章节目录</div>
+          <div v-if="work" class="tree">
+            <ChapterNode :node="work.root" :depth="0" :index-map="indexMap" :active-id="activeId" @select="selectEpisode" />
+          </div>
+          <div v-else class="side-empty gray-text">输入作品 ID 后点击「读取」</div>
+        </section>
+        </div>
       </aside>
 
       <section class="app-content">
+        <div class="browse-header">
+          <div>
+            <div class="browse-title">浏览区</div>
+            <div class="browse-subtitle gray-text">选择左侧章节后，在这里阅读和朗读正文</div>
+          </div>
+          <div v-if="work" class="browse-work-title">{{ work.meta.title }}</div>
+        </div>
+
         <!-- player -->
         <div class="panel player-panel">
           <template v-if="current">
@@ -527,7 +565,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="status-line">{{ status }}</div>
-            <details v-if="currentText" class="text-panel">
+            <details v-if="currentText" class="text-panel" open>
               <summary>展开正文</summary>
               <article class="episode-text">{{ currentText }}</article>
             </details>
@@ -593,21 +631,47 @@ onBeforeUnmount(() => {
 <style scoped>
 .app { display: flex; flex-direction: column; height: 100vh; }
 
-/* header */
-.app-header {
+/* left function area */
+.app-title { font-size: 22px; font-weight: 600; }
+.side-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 8px 18px;
+  border-bottom: 1px solid rgba(180, 148, 96, 0.25);
+}
+.brand-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 14px 20px;
-  background: linear-gradient(180deg, rgba(15, 24, 38, 0.95), rgba(10, 17, 28, 0.9));
-  border-bottom: 1px solid rgba(180, 148, 96, 0.35);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  justify-content: space-between;
+  gap: 8px;
 }
-.app-title { font-size: 22px; font-weight: 600; }
-.wid-input { width: 240px; }
+.sidebar-toggle {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border: 1px solid rgba(180, 148, 96, 0.45);
+  border-radius: 6px;
+  background: rgba(180, 148, 96, 0.08);
+  color: var(--font-gold, #fed57f);
+  font-size: 24px;
+  line-height: 24px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover {
+  background: rgba(254, 213, 127, 0.18);
+}
+.side-brand .mode-badge { align-self: flex-start; margin-left: 0; }
+.wid-input { width: 100%; }
 .gear-btn { width: 50px; min-width: 50px; flex: 0 0 50px; padding: 0; }
-.work-info { margin-left: 8px; max-width: 420px; min-width: 0; }
+.function-panel {
+  padding: 16px 8px;
+  border-bottom: 1px solid rgba(180, 148, 96, 0.25);
+}
+.side-section-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.function-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.function-actions :deep(.button-wrap-button) { flex: 1 1 auto; min-width: 0; }
+.work-info { margin-top: 16px; min-width: 0; }
 .work-title {
   font-size: 14px;
   color: var(--blank-white, #ede5d8);
@@ -627,11 +691,25 @@ onBeforeUnmount(() => {
 }
 .mode-badge {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid;
   white-space: nowrap;
+}
+.mode-logo {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+.mode-logo svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 .mode-badge.ok { color: var(--font-green, #6bb463); border-color: rgba(107, 180, 99, 0.5); background: rgba(107, 180, 99, 0.1); }
 .mode-badge.warn { color: var(--font-gold, #fed57f); border-color: rgba(254, 213, 127, 0.5); background: rgba(254, 213, 127, 0.1); }
@@ -639,17 +717,43 @@ onBeforeUnmount(() => {
 /* main */
 .app-main { flex: 1; display: flex; min-height: 0; }
 .app-side {
-  width: 300px;
-  min-width: 240px;
+  width: 320px;
+  min-width: 280px;
   overflow-y: auto;
-  padding: 12px 8px;
+  padding: 14px 12px;
   border-right: 1px solid rgba(180, 148, 96, 0.25);
   background: rgba(10, 18, 30, 0.55);
+  transition: width 0.22s ease, min-width 0.22s ease, padding 0.22s ease;
 }
+.app-side.collapsed {
+  width: 68px;
+  min-width: 68px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.app-side.collapsed .side-brand {
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.app-side.collapsed .brand-row { width: 100%; flex-direction: column; }
+.app-side.collapsed .app-title { font-size: 16px; }
+.app-side.collapsed .mode-badge { display: none; }
+.chapter-panel { padding-top: 14px; }
 .side-title { font-size: 14px; font-weight: 600; padding: 4px 8px 10px; }
 .side-empty { padding: 24px; text-align: center; font-size: 13px; }
 
-.app-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.app-content { flex: 1; min-width: 0; overflow-y: auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+.browse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 4px;
+}
+.browse-title { font-size: 20px; font-weight: 600; color: #f6e3b4; }
+.browse-subtitle { font-size: 12px; margin-top: 4px; }
+.browse-work-title { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c8d0db; font-size: 13px; }
 
 /* panels */
 .panel {
@@ -659,7 +763,7 @@ onBeforeUnmount(() => {
   padding: 24px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
 }
-.player-panel { max-width: 680px; width: 100%; margin: 0 auto; }
+.player-panel { width: 100%; margin: 0; }
 .empty-panel { text-align: center; padding: 40px 0; font-size: 14px; }
 .ep-title { font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 4px; }
 .ep-sub { font-size: 12px; text-align: center; margin-bottom: 18px; }
@@ -719,7 +823,7 @@ onBeforeUnmount(() => {
 }
 
 /* batch */
-.batch-panel { max-width: 680px; width: 100%; margin: 0 auto; }
+.batch-panel { width: 100%; margin: 0; }
 .batch-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
 .batch-hint { font-size: 12px; margin-bottom: 12px; }
 .batch-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
@@ -772,26 +876,31 @@ onBeforeUnmount(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 700px) {
-  .app-header {
-    gap: 8px;
-    padding: 10px 12px;
-  }
-  .app-title { width: 100%; font-size: 19px; }
+  .app-title { font-size: 19px; }
   .wid-input { width: 100%; min-width: 0; flex: 1 1 100%; }
-  .app-header :deep(.button-wrap-button) { width: auto; min-width: 0; flex: 0 0 auto; }
-  .work-info { order: 4; width: 100%; margin-left: 0; max-width: none; max-height: 46px; overflow: hidden; }
+  .side-brand { flex-direction: row; align-items: center; justify-content: space-between; }
+  .function-panel { padding: 14px 4px; }
+  .function-actions :deep(.button-wrap-button) { width: auto; flex: 1 1 auto; }
+  .work-info { width: 100%; max-height: 70px; overflow: hidden; }
   .work-tags { max-height: 22px; overflow: hidden; }
-  .mode-badge { order: 5; margin-left: 0; }
 
   .app-main { flex-direction: column; }
   .app-side {
     width: 100%;
     min-width: 0;
-    max-height: 30vh;
+    max-height: 46vh;
     border-right: 0;
     border-bottom: 1px solid rgba(180, 148, 96, 0.25);
   }
-  .app-content { padding: 12px; gap: 12px; }
+  .app-side.collapsed {
+    width: 100%;
+    min-width: 0;
+    max-height: 64px;
+  }
+  .app-side.collapsed .brand-row { flex-direction: row; }
+  .app-content { padding: 16px 12px; gap: 12px; }
+  .browse-header { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .browse-work-title { max-width: 100%; }
   .panel { padding: 16px; }
   .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .setting { min-width: 0; }
