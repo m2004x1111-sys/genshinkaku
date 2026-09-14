@@ -46,7 +46,10 @@ const proxyTestResult = ref('')
 const relayBase = ref('')
 
 const relayMode = ref(false)
-const sidebarCollapsed = ref(false)
+const page = ref('parse')
+const chaptersOpen = ref(false)
+const audioControlsOpen = ref(false)
+const moreOpen = ref(false)
 const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
 const AUDIO_SETTINGS_KEY = 'kakuyomu_audio_settings'
 const modeLabel = computed(() => {
@@ -92,8 +95,22 @@ function fmtTime(t) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
+function openParsePage() {
+  Player.stop()
+  chaptersOpen.value = false
+  audioControlsOpen.value = false
+  moreOpen.value = false
+  page.value = 'parse'
+}
+
+function toggleAudioControls() {
+  audioControlsOpen.value = !audioControlsOpen.value
+  moreOpen.value = false
+}
+
+function toggleMoreMenu() {
+  moreOpen.value = !moreOpen.value
+  audioControlsOpen.value = false
 }
 
 // ── episode content ────────────────────────────────────────────────────
@@ -143,6 +160,8 @@ function applyWork(data) {
   currentText.value = ''
   episodeParas.value = new Map()
   status.value = ''
+  chaptersOpen.value = false
+  page.value = 'reader'
 }
 
 function loadAudioSettings() {
@@ -221,6 +240,7 @@ async function loadWork() {
 // ── select / play ──────────────────────────────────────────────────────
 function selectEpisode(ep) {
   current.value = { episode: ep, index: indexMap.value[ep.episodeId] }
+  chaptersOpen.value = false
   playEpisode()
 }
 function stepEpisode(delta) {
@@ -448,145 +468,135 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <!-- main: left function area + right browser area -->
-    <main class="app-main">
-      <aside class="app-side" :class="{ collapsed: sidebarCollapsed }">
-        <div class="side-brand">
-          <div class="brand-row">
-            <div class="app-title">
-              <span v-if="!sidebarCollapsed">阅读机</span>
-              <span v-else title="阅读机">TTS</span>
-            </div>
-            <button class="sidebar-toggle" type="button" :aria-expanded="!sidebarCollapsed"
-                    :aria-label="sidebarCollapsed ? '展开左侧栏' : '收起左侧栏'"
-                    :title="sidebarCollapsed ? '展开左侧栏' : '收起左侧栏'"
-                    @click="toggleSidebar">
-              {{ sidebarCollapsed ? '›' : '‹' }}
-            </button>
-          </div>
-          <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
-            <span class="mode-logo" aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="img">
-                <path d="M4 4h8.7L21 12.3 12.3 21 4 12.7V4Zm3 2v5.9l5.3 5.3 5.9-5.9-5.3-5.3H7Z" />
-                <circle cx="8.4" cy="8.4" r="1.2" />
-              </svg>
-            </span>
-            <span>{{ modeLabel }}</span>
-          </div>
+    <!-- page 1: parse a work -->
+    <main v-if="page === 'parse'" class="parse-page">
+      <section class="parse-card">
+        <div class="app-title">阅读机</div>
+        <p class="parse-intro gray-text">输入 Kakuyomu 作品 ID 或完整链接，解析完成后进入阅读页。</p>
+        <input v-model="workIdInput" class="text-input parse-input" placeholder="作品 ID 或完整 URL" @keydown.enter="loadWork" />
+        <div class="parse-actions">
+          <GButton type="shrink" @click="loadWork" :disable="busy">解析作品</GButton>
+          <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
         </div>
-
-        <div v-show="!sidebarCollapsed" class="sidebar-content">
-        <section class="function-panel">
-          <div class="side-section-title gold-text">功能区</div>
-          <input v-model="workIdInput" class="text-input wid-input" placeholder="作品 ID 或完整 URL" @keydown.enter="loadWork" />
-          <div class="function-actions">
-            <GButton type="shrink" @click="loadWork" :disable="busy">读取</GButton>
-            <GButton type="shrink" @click="downloadEpub" :disable="busy || !work">EPUB</GButton>
-            <GButton type="shrink" @click="generateAll" :disable="busy || !work">全话 MP3</GButton>
-            <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
-          </div>
-
-          <div v-if="work" class="work-info">
-            <div class="work-title">{{ work.meta.title }}</div>
-            <div class="work-meta gray-text">
-              {{ work.meta.author }} · <span class="gold-text">{{ entries.length }}</span> 话
-            </div>
-            <div v-if="work.meta.tags && work.meta.tags.length" class="work-tags">
-              <span v-for="t in work.meta.tags" :key="t" class="tag">{{ t }}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="chapter-panel">
-          <div class="side-title gold-text">章节目录</div>
-          <div v-if="work" class="tree">
-            <ChapterNode :node="work.root" :depth="0" :index-map="indexMap" :active-id="activeId" @select="selectEpisode" />
-          </div>
-          <div v-else class="side-empty gray-text">输入作品 ID 后点击「读取」</div>
-        </section>
+        <div class="mode-badge" :class="isEdge ? 'ok' : 'warn'">
+          <span class="mode-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M4 4h8.7L21 12.3 12.3 21 4 12.7V4Zm3 2v5.9l5.3 5.3 5.9-5.9-5.3-5.3H7Z" />
+              <circle cx="8.4" cy="8.4" r="1.2" />
+            </svg>
+          </span>
+          <span>{{ modeLabel }}</span>
         </div>
-      </aside>
+      </section>
+    </main>
 
-      <section class="app-content">
-        <div class="browse-header">
-          <div>
-            <div class="browse-title">浏览区</div>
-            <div class="browse-subtitle gray-text">选择左侧章节后，在这里阅读和朗读正文</div>
-          </div>
-          <div v-if="work" class="browse-work-title">{{ work.meta.title }}</div>
+    <!-- page 2: browse and read -->
+    <main v-else class="reader-page">
+      <header class="reader-header">
+        <button class="back-button" type="button" @click="openParsePage">← 重新解析</button>
+        <div class="reader-work-info">
+          <div class="reader-work-title">{{ work.meta.title }}</div>
+          <div class="gray-text">{{ work.meta.author }} · {{ entries.length }} 话</div>
         </div>
+      </header>
 
-        <!-- player -->
-        <div class="panel player-panel">
-          <template v-if="current">
+      <section class="reader-content">
+        <template v-if="current">
+          <article class="reader-panel">
             <div class="ep-title">{{ current.episode.title }}</div>
             <div class="ep-sub gray-text">
               {{ work.meta.title }} · <span class="gold-text">{{ current.index }}/{{ entries.length }}</span>
             </div>
-
-            <div class="progress-row">
-              <span class="time gray-text">{{ fmtTime(curTime) }}</span>
-              <input type="range" class="progress-bar" min="0" :max="duration || 1" step="0.1"
-                     :value="curTime" @input="onSeek" />
-              <span class="time gray-text">{{ fmtTime(duration) }}</span>
-            </div>
-
-            <div class="controls">
-              <GButton type="shrink" class="ctl" @click="stepEpisode(-1)" title="上一话">⏮</GButton>
-              <GButton type="shrink" class="ctl play" @click="togglePlay" title="播放/暂停">{{ isPlaying ? '⏸' : '▶' }}</GButton>
-              <GButton type="shrink" class="ctl" @click="stepEpisode(1)" title="下一话">⏭</GButton>
-            </div>
-
-            <div class="settings-grid">
-              <label class="setting">发音人
-                <GSelect v-model="voice" :options="voiceOptions" />
-              </label>
-              <label class="setting">语速
-                <GSelect v-model="rate" :options="rateOptions" />
-              </label>
-              <label class="setting">音调
-                <GSelect v-model="pitch" :options="pitchOptions" />
-              </label>
-              <label class="setting">播放倍速
-                <GSelect v-model="pbRate" :options="pbRateOptions" />
-              </label>
-              <label class="setting">
-                <span>音量</span>
-                <input type="range" min="0" max="1" step="0.05" :value="volume" @input="onVolume" />
-              </label>
-              <div class="setting switch-row">
-                <span>自动下一话</span>
-                <GSwitch v-model="autoNext" />
-              </div>
-              <div class="setting switch-row">
-                <span>保存 MP3</span>
-                <GSwitch v-model="saveToLocal" onText="开" offText="关" />
-              </div>
-            </div>
-
             <div class="status-line">{{ status }}</div>
-            <details v-if="currentText" class="text-panel" open>
-              <summary>展开正文</summary>
-              <article class="episode-text">{{ currentText }}</article>
-            </details>
-          </template>
-          <div v-else class="empty-panel gray-text">← 点击左侧章节开始朗读</div>
+            <article v-if="currentText" class="episode-text">{{ currentText }}</article>
+            <div v-else class="reader-wait gray-text">正在准备正文…</div>
+          </article>
+        </template>
+        <div v-else class="empty-reader">
+          <div class="empty-reader-title">开始阅读</div>
+          <div class="gray-text">点击底部的「目录」选择章节。</div>
         </div>
 
-        <!-- batch -->
-        <div class="panel batch-panel">
-          <div class="batch-title gold-text">批量生成 MP3（ZIP）</div>
-          <div class="gray-text batch-hint">逐话合成全部音频，完成后自动下载一个 ZIP 压缩包。</div>
-          <div class="batch-actions">
-            <GButton type="shrink" @click="generateAll" :disable="busy || !work">开始生成</GButton>
-            <span v-if="batchRunning" class="gray-text">{{ batchStatus }}</span>
+        <div v-if="batchRunning || batchProgress > 0" class="batch-progress reader-batch-progress">
+          <div class="progress-track"><div class="progress-fill" :style="{ width: batchProgress + '%' }"></div></div>
+          <div class="gray-text batch-status">{{ batchStatus }}</div>
+        </div>
+      </section>
+
+      <aside v-if="chaptersOpen" class="chapter-drawer">
+        <div class="drawer-header">
+          <div class="gold-text">章节目录</div>
+          <button class="drawer-close" type="button" @click="chaptersOpen = false" title="关闭目录">×</button>
+        </div>
+        <div class="tree">
+          <ChapterNode :node="work.root" :depth="0" :index-map="indexMap" :active-id="activeId" @select="selectEpisode" />
+        </div>
+      </aside>
+      <button v-if="chaptersOpen" class="drawer-mask" type="button" aria-label="关闭目录" @click="chaptersOpen = false"></button>
+
+      <section v-if="audioControlsOpen" class="audio-sheet">
+        <div class="settings-grid">
+          <label class="setting">发音人
+            <GSelect v-model="voice" :options="voiceOptions" />
+          </label>
+          <label class="setting">语速
+            <GSelect v-model="rate" :options="rateOptions" />
+          </label>
+          <label class="setting">音调
+            <GSelect v-model="pitch" :options="pitchOptions" />
+          </label>
+          <label class="setting">播放倍速
+            <GSelect v-model="pbRate" :options="pbRateOptions" />
+          </label>
+          <label class="setting">
+            <span>音量</span>
+            <input type="range" min="0" max="1" step="0.05" :value="volume" @input="onVolume" />
+          </label>
+          <div class="setting switch-row">
+            <span>自动下一话</span>
+            <GSwitch v-model="autoNext" />
           </div>
-          <div v-if="batchRunning || batchProgress > 0" class="batch-progress">
-            <div class="progress-track"><div class="progress-fill" :style="{ width: batchProgress + '%' }"></div></div>
-            <div class="gray-text batch-status">{{ batchStatus }}</div>
+          <div class="setting switch-row">
+            <span>保存 MP3</span>
+            <GSwitch v-model="saveToLocal" onText="开" offText="关" />
           </div>
         </div>
       </section>
+
+      <section v-if="moreOpen" class="toolbar-more-menu">
+        <GButton type="shrink" @click="downloadEpub" :disable="busy || !work">下载 EPUB</GButton>
+        <GButton type="shrink" @click="generateAll" :disable="busy || !work">生成全话 MP3</GButton>
+        <GButton type="shrink" @click="moreOpen = false; openSettings()">连接设置</GButton>
+        <GButton type="shrink" @click="openParsePage">重新解析</GButton>
+      </section>
+
+      <footer class="bottom-toolbar">
+        <div v-if="current" class="progress-row toolbar-progress">
+          <span class="time gray-text">{{ fmtTime(curTime) }}</span>
+          <input type="range" class="progress-bar" min="0" :max="duration || 1" step="0.1" :value="curTime" @input="onSeek" />
+          <span class="time gray-text">{{ fmtTime(duration) }}</span>
+        </div>
+        <div class="toolbar-actions">
+          <GButton type="shrink" class="toolbar-action" @click="stepEpisode(-1)" :disable="!current" title="上一话">
+            <span class="toolbar-icon">‹</span><span>上一话</span>
+          </GButton>
+          <GButton type="shrink" class="toolbar-action" @click="chaptersOpen = !chaptersOpen; audioControlsOpen = false; moreOpen = false">
+            <span class="toolbar-icon">☰</span><span>目录</span>
+          </GButton>
+          <GButton type="shrink" class="toolbar-action toolbar-play" @click="togglePlay" :disable="!current" title="播放/暂停">
+            <span class="toolbar-icon">{{ isPlaying ? 'Ⅱ' : '▶' }}</span><span>{{ isPlaying ? '暂停' : '播放' }}</span>
+          </GButton>
+          <GButton type="shrink" class="toolbar-action" @click="toggleAudioControls">
+            <span class="toolbar-icon">♫</span><span>调音</span>
+          </GButton>
+          <GButton type="shrink" class="toolbar-action" @click="toggleMoreMenu">
+            <span class="toolbar-icon">•••</span><span>更多</span>
+          </GButton>
+          <GButton type="shrink" class="toolbar-action" @click="stepEpisode(1)" :disable="!current" title="下一话">
+            <span class="toolbar-icon">›</span><span>下一话</span>
+          </GButton>
+        </div>
+      </footer>
     </main>
 
     <!-- settings modal -->
@@ -909,5 +919,229 @@ onBeforeUnmount(() => {
   .ctl.play { width: 60px; flex-basis: 60px; }
   .batch-actions { flex-wrap: wrap; }
   .batch-status { overflow-wrap: anywhere; }
+}
+</style>
+
+<style scoped>
+/* Two-page flow: parse page first, then a focused reader page. */
+.parse-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  padding: clamp(28px, 10vw, 150px);
+}
+.parse-card {
+  width: min(100%, 520px);
+  padding: clamp(28px, 5vw, 52px);
+  border: 1px solid rgba(180, 148, 96, 0.38);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(17, 30, 47, 0.96), rgba(10, 18, 30, 0.92));
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.32);
+}
+.parse-card .app-title { font-size: clamp(28px, 4vw, 40px); }
+.parse-intro { margin: 14px 0 24px; line-height: 1.7; }
+.parse-input { width: 100%; }
+.parse-actions { display: flex; gap: 10px; margin-top: 12px; }
+.parse-actions :deep(.button-wrap-button):first-child { flex: 1; }
+.parse-card .mode-badge { margin: 22px 0 0; }
+
+.reader-page {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.reader-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px clamp(16px, 4vw, 56px);
+  border-bottom: 1px solid rgba(180, 148, 96, 0.28);
+  background: rgba(10, 18, 30, 0.72);
+}
+.back-button, .drawer-close {
+  border: 0;
+  background: transparent;
+  color: var(--font-gold, #fed57f);
+  cursor: pointer;
+  font-size: 14px;
+}
+.back-button:hover, .drawer-close:hover { color: #fff0be; }
+.reader-work-info { min-width: 0; }
+.reader-work-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; color: #f6e3b4; }
+.reader-work-info .gray-text { margin-top: 3px; font-size: 12px; }
+.reader-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px clamp(18px, 9vw, 160px) 180px;
+}
+.reader-panel, .empty-reader {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+.reader-panel {
+  padding: clamp(22px, 4vw, 46px);
+  border: 1px solid rgba(180, 148, 96, 0.32);
+  border-radius: 14px;
+  background: rgba(15, 26, 42, 0.78);
+}
+.reader-panel .ep-title { font-size: clamp(19px, 2.5vw, 26px); }
+.reader-panel .ep-sub { margin-bottom: 14px; }
+.reader-panel .status-line { margin-bottom: 16px; }
+.reader-panel .episode-text {
+  max-height: none;
+  overflow: visible;
+  padding-top: 18px;
+  border-top: 1px solid rgba(180, 148, 96, 0.2);
+  font-size: 16px;
+  line-height: 2;
+}
+.reader-wait, .empty-reader { text-align: center; padding: 72px 20px; }
+.empty-reader-title { margin-bottom: 10px; color: #f6e3b4; font-size: 22px; }
+.reader-batch-progress { width: min(100%, 900px); margin: 18px auto 0; }
+
+.chapter-drawer {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 88vw);
+  overflow-y: auto;
+  padding: 18px 12px 112px;
+  border-left: 1px solid rgba(180, 148, 96, 0.42);
+  background: #101c2d;
+  box-shadow: -16px 0 42px rgba(0, 0, 0, 0.35);
+}
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 14px;
+  font-size: 16px;
+}
+.drawer-close { font-size: 26px; line-height: 1; }
+.drawer-mask {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.audio-sheet {
+  position: absolute;
+  z-index: 24;
+  right: clamp(12px, 4vw, 56px);
+  bottom: 100px;
+  width: min(680px, calc(100% - 24px));
+  padding: 18px;
+  border: 1px solid rgba(180, 148, 96, 0.42);
+  border-radius: 12px;
+  background: rgba(13, 24, 39, 0.98);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.audio-sheet .settings-grid { margin-bottom: 0; }
+.toolbar-more-menu {
+  position: absolute;
+  z-index: 24;
+  bottom: 108px;
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(620px, calc(100% - 32px));
+  padding: 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(180, 148, 96, 0.42);
+  border-radius: 14px;
+  background: rgba(13, 24, 39, 0.98);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.bottom-toolbar {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  width: min(620px, calc(100% - 32px));
+  transform: translateX(-50%);
+  padding: 8px;
+  border: 1px solid rgba(180, 148, 96, 0.42);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: rgba(10, 18, 30, 0.96);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
+}
+.toolbar-progress { width: 100%; min-width: 0; margin: 0; }
+.toolbar-actions {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+.toolbar-actions :deep(.button-wrap-button) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 5px 2px;
+  border-radius: 9px;
+  line-height: 1.15;
+}
+.toolbar-icon {
+  display: block;
+  min-height: 25px;
+  font-size: 22px;
+  line-height: 22px;
+}
+.toolbar-play :deep(.button-wrap-button) {
+  color: var(--font-gold, #fed57f);
+  border-color: rgba(254, 213, 127, 0.65);
+  background: rgba(254, 213, 127, 0.12);
+}
+
+@media (max-width: 700px) {
+  .parse-page { align-items: flex-start; padding: 56px 16px; }
+  .parse-card { width: 100%; }
+  .reader-header { padding: 9px 14px; }
+  .reader-content { padding: 22px 12px 204px; }
+  .reader-panel { padding: 22px 18px; }
+  .reader-panel .episode-text { font-size: 15px; line-height: 1.9; }
+  .audio-sheet { right: 12px; bottom: 138px; }
+  .toolbar-more-menu {
+    right: 12px;
+    bottom: 132px;
+    left: 12px;
+    width: auto;
+    transform: none;
+  }
+  .bottom-toolbar {
+    right: 12px;
+    bottom: 10px;
+    left: 12px;
+    width: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    transform: none;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(180, 148, 96, 0.42);
+    border-radius: 14px;
+  }
+  .toolbar-progress { width: 100%; min-width: 0; }
+  .toolbar-actions { width: 100%; gap: 3px; }
+  .toolbar-actions :deep(.button-wrap-button) { min-width: 0; }
 }
 </style>
