@@ -52,6 +52,9 @@ const audioControlsOpen = ref(false)
 const moreOpen = ref(false)
 const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
 const AUDIO_SETTINGS_KEY = 'kakuyomu_audio_settings'
+const LAST_WORK_INPUT_KEY = 'kakuyomu_last_work_input'
+const LAST_READING_POSITION_KEY = 'kakuyomu_last_reading_position'
+let restoreRequestId = 0
 const modeLabel = computed(() => {
   if (isEdge.value) {
     if (relayMode.value) return getRelayBase() ? '远程中转 · 全浏览器可放 MP3' : '喵！'
@@ -162,6 +165,45 @@ function applyWork(data) {
   status.value = ''
   chaptersOpen.value = false
   page.value = 'reader'
+  void restoreLastReadingPosition()
+}
+
+function saveLastWorkInput(input) {
+  try {
+    localStorage.setItem(LAST_WORK_INPUT_KEY, input)
+  } catch (e) { /* ignore unavailable browser storage */ }
+}
+
+function saveReadingPosition(ep) {
+  try {
+    localStorage.setItem(LAST_READING_POSITION_KEY, JSON.stringify({
+      workId: String(ep.workId),
+      episodeId: String(ep.episodeId),
+    }))
+  } catch (e) { /* ignore unavailable browser storage */ }
+}
+
+async function restoreLastReadingPosition() {
+  const requestId = ++restoreRequestId
+  let saved
+  try {
+    saved = JSON.parse(localStorage.getItem(LAST_READING_POSITION_KEY) || 'null')
+  } catch (e) { return }
+  if (!saved || String(saved.workId) !== String(work.value?.meta.workId)) return
+
+  const entry = entries.value.find((item) => String(item.episodeId) === String(saved.episodeId))
+  if (!entry) return
+
+  current.value = { episode: entry, index: indexMap.value[entry.episodeId] }
+  status.value = '正在恢复上次阅读位置...'
+  try {
+    const text = await episodeText(entry)
+    if (requestId !== restoreRequestId || current.value?.episode.episodeId !== entry.episodeId) return
+    currentText.value = text
+    status.value = text ? '已恢复上次阅读位置' : '正文为空 — 可能抓取失败'
+  } catch (e) {
+    if (requestId === restoreRequestId) status.value = '恢复正文失败：' + e.message
+  }
 }
 
 function loadAudioSettings() {
@@ -202,6 +244,7 @@ async function loadWork() {
   // cache-first: show cached work immediately, refresh in background
   const cached = await Cache.get(wid, 'works')
   if (cached && cached.work) {
+    saveLastWorkInput(input)
     applyWork(cached.work)
     loading.value = true
     loadingText.value = '已加载缓存，正在后台刷新...'
@@ -227,6 +270,7 @@ async function loadWork() {
   try {
     const data = await Kakuyomu.fetchWork(wid, { onRetry: (m) => { loadingText.value = `抓取失败重试中: ${m}` } })
     Cache.set(wid, { work: data }, 'works')
+    saveLastWorkInput(input)
     applyWork(data)
     Message.success(`读取成功：${data.meta.title}（${entries.value.length} 话）`)
   } catch (e) {
@@ -240,6 +284,7 @@ async function loadWork() {
 // ── select / play ──────────────────────────────────────────────────────
 function selectEpisode(ep) {
   current.value = { episode: ep, index: indexMap.value[ep.episodeId] }
+  saveReadingPosition(ep)
   chaptersOpen.value = false
   playEpisode()
 }
@@ -249,6 +294,7 @@ function stepEpisode(delta) {
   if (idx < 0 || idx >= entries.value.length) return
   const entry = entries.value[idx]
   current.value = { episode: entry, index: idx + 1 }
+  saveReadingPosition(entry)
   playEpisode()
 }
 
@@ -448,6 +494,12 @@ onMounted(() => {
     if (!busy.value && !/语音服务失败|浏览器语音/.test(status.value)) status.value = '播放错误 — 语音合成失败'
   })
   loadAudioSettings()
+
+  const lastWorkInput = localStorage.getItem(LAST_WORK_INPUT_KEY)
+  if (lastWorkInput) {
+    workIdInput.value = lastWorkInput
+    loadWork()
+  }
 
   onKey = (e) => {
     const tag = document.activeElement.tagName
