@@ -54,6 +54,7 @@ const isEdge = computed(() => relayMode.value || Util.isEdgeTTSBrowser())
 const AUDIO_SETTINGS_KEY = 'kakuyomu_audio_settings'
 const LAST_WORK_INPUT_KEY = 'kakuyomu_last_work_input'
 const LAST_READING_POSITION_KEY = 'kakuyomu_last_reading_position'
+const LAST_PAGE_KEY = 'kakuyomu_last_page'
 let restoreRequestId = 0
 const modeLabel = computed(() => {
   if (isEdge.value) {
@@ -104,6 +105,7 @@ function openParsePage() {
   audioControlsOpen.value = false
   moreOpen.value = false
   page.value = 'parse'
+  saveLastPage('parse')
 }
 
 function toggleAudioControls() {
@@ -165,12 +167,19 @@ function applyWork(data) {
   status.value = ''
   chaptersOpen.value = false
   page.value = 'reader'
+  saveLastPage('reader')
   void restoreLastReadingPosition()
 }
 
 function saveLastWorkInput(input) {
   try {
     localStorage.setItem(LAST_WORK_INPUT_KEY, input)
+  } catch (e) { /* ignore unavailable browser storage */ }
+}
+
+function saveLastPage(nextPage) {
+  try {
+    localStorage.setItem(LAST_PAGE_KEY, nextPage)
   } catch (e) { /* ignore unavailable browser storage */ }
 }
 
@@ -496,7 +505,8 @@ onMounted(() => {
   loadAudioSettings()
 
   const lastWorkInput = localStorage.getItem(LAST_WORK_INPUT_KEY)
-  if (lastWorkInput) {
+  const lastPage = localStorage.getItem(LAST_PAGE_KEY)
+  if (lastWorkInput && lastPage !== 'parse') {
     workIdInput.value = lastWorkInput
     loadWork()
   }
@@ -524,8 +534,8 @@ onBeforeUnmount(() => {
     <main v-if="page === 'parse'" class="parse-page">
       <section class="parse-card">
         <div class="app-title">阅读机</div>
-        <p class="parse-intro gray-text">输入 Kakuyomu 作品 ID 或完整链接，解析完成后进入阅读页。</p>
-        <input v-model="workIdInput" class="text-input parse-input" placeholder="作品 ID 或完整 URL" @keydown.enter="loadWork" />
+        <p class="parse-intro gray-text">请输入URL </p>
+        <input v-model="workIdInput" class="text-input parse-input" placeholder="输入URL" @keydown.enter="loadWork" />
         <div class="parse-actions">
           <GButton type="shrink" @click="loadWork" :disable="busy">解析作品</GButton>
           <GButton type="shrink" class="gear-btn" @click="openSettings" title="设置">⚙</GButton>
@@ -545,7 +555,7 @@ onBeforeUnmount(() => {
     <!-- page 2: browse and read -->
     <main v-else class="reader-page">
       <header class="reader-header">
-        <button class="back-button" type="button" @click="openParsePage">← 重新解析</button>
+        <button class="back-button" type="button" @click="openParsePage">← 返回主页</button>
         <div class="reader-work-info">
           <div class="reader-work-title">{{ work.meta.title }}</div>
           <div class="gray-text">{{ work.meta.author }} · {{ entries.length }} 话</div>
